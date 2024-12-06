@@ -1,6 +1,6 @@
+import CalendarController from './controllers/CalendarController.js';
 import express from 'express';
 import dotenv from 'dotenv';
-import CalendarController from './controllers/CalendarController.js';
 
 // Cargar variables de entorno
 dotenv.config();
