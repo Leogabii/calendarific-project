@@ -1,4 +1,4 @@
-import { fetch } from 'node-fetch';
+import fetch from 'node-fetch'; // Importa el módulo completo
 
 class CalendarService {
   // Paso 1: Obtener feriados desde la API de Calendarific
@@ -6,7 +6,7 @@ class CalendarService {
     const API_KEY = process.env.CALENDARIFIC_API_KEY;
     const url = `https://calendarific.com/api/v2/holidays?api_key=${API_KEY}&country=${country}&year=${year}`;
 
-    const response = await fetch(url);
+    const response = await fetch(url); // Usamos fetch del módulo completo
     if (!response.ok) {
       throw new Error(`Error al obtener feriados: ${response.statusText}`);
     }
