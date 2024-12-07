@@ -1,29 +1,25 @@
-import SheetDBService from '../services/SheetDBService.js';
 import CalendarService from '../services/CalendarService.js';
 
 class CalendarController {
-  static async getLaborDays(req, res) {
+  static async getWorkingDays(req, res) {
     try {
-      const { country, year } = req.query;
-      const holidays = await CalendarService.fetchHolidays(country, year);
+      // Paso 1: Obtener días laborales desde la API de Calendarific
+      const workingDays = await CalendarService.fetchWorkingDaysFromCalendarific();
 
-      const laborDays = CalendarService.filterLaborDays(holidays, year);
+      // Paso 2: Guardar los días laborales en SheetDB
+      const result = await CalendarService.saveWorkingDaysToSheetDB(workingDays);
 
-      // Convertimos los días laborales al formato requerido por SheetDB
-      const sheetData = laborDays.map((day) => ({
-        día: day.día,
-        mes: day.mes,
-        año: day.año,
-        laboral: 'sí',
-        disponible: true,
-      }));
-
-      // Guardamos los datos en SheetDB
-      await SheetDBService.saveLaborDays(sheetData);
-
-      res.json(sheetData);
+      // Paso 3: Responder con éxito
+      res.status(200).json({
+        message: 'Días laborales obtenidos y guardados exitosamente en SheetDB',
+        data: result,
+      });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      // Manejo de errores
+      res.status(500).json({
+        message: 'Error al procesar los días laborales',
+        error: error.message,
+      });
     }
   }
 }
