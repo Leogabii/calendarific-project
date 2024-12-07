@@ -1,32 +1,44 @@
+import https from 'https';
 import dotenv from 'dotenv';
 
-// Cargar variables de entorno
 dotenv.config();
 
-class CalendarService {
-  // Método para guardar días laborales en SheetDB
-  static async saveWorkingDaysToSheetDB(workingDays) {
-    try {
-      const response = await fetch(process.env.SHEETDB_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Basic ${Buffer.from(`${process.env.SHEETDB_USER}:${process.env.SHEETDB_PASSWORD}`).toString('base64')}`,
-        },
-        body: JSON.stringify(workingDays),
+class SheetDBService {
+  static async saveLaborDays(laborDays) {
+    const data = JSON.stringify(laborDays);
+    const options = {
+      hostname: 'sheetdb.io',
+      path: `/api/v1/${process.env.SHEETDB_URL}`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': data.length,
+        Authorization: `Basic ${Buffer.from(`${process.env.SHEETDB_USER}:${process.env.SHEETDB_PASSWORD}`).toString('base64')}`,
+      },
+    };
+
+    return new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        let responseData = '';
+
+        res.on('data', (chunk) => {
+          responseData += chunk;
+        });
+
+        res.on('end', () => {
+          if (res.statusCode === 200 || res.statusCode === 201) {
+            resolve(JSON.parse(responseData));
+          } else {
+            reject(new Error(`Error: ${res.statusCode} - ${responseData}`));
+          }
+        });
       });
 
-      if (!response.ok) {
-        throw new Error('Error al guardar en SheetDB');
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error al guardar en SheetDB:', error.message);
-      throw new Error('No se pudo guardar en SheetDB.');
-    }
+      req.on('error', (error) => reject(error));
+      req.write(data);
+      req.end();
+    });
   }
 }
 
-export default CalendarService;
+export default SheetDBService;
