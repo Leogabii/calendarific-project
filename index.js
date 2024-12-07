@@ -1,19 +1,17 @@
 import express from 'express';
-import CalendarController from './controllers/CalendarController.js';
 import dotenv from 'dotenv';
+import CalendarController from './controllers/CalendarController.js';
 
-// Cargar variables de entorno
 dotenv.config();
 
 const app = express();
+
+// Middleware para JSON
 app.use(express.json());
 
 // Rutas
-app.get('/api/holidays', CalendarController.getWorkingDays);
+app.get('/api/working-days', CalendarController.getWorkingDays);
 
-// Puerto desde .env
+// Servidor
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Servidor ejecutándose en el puerto ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
