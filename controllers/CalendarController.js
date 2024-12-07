@@ -1,18 +1,31 @@
-import express from 'express';
+import SheetDBService from '../services/SheetDBService.js';
 import CalendarService from '../services/CalendarService.js';
 
-const router = express.Router();
-const calendarService = new CalendarService();
-
-// Ruta para obtener feriados
-router.get('/', async (req, res) => {
+class CalendarController {
+  static async getLaborDays(req, res) {
     try {
-        const { country = 'US', year = new Date().getFullYear() } = req.query;
-        const holidays = await calendarService.getHolidays(country, year);
-        res.json(holidays);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+      const { country, year } = req.query;
+      const holidays = await CalendarService.fetchHolidays(country, year);
 
-export default router;
+      const laborDays = CalendarService.filterLaborDays(holidays, year);
+
+      // Convertimos los días laborales al formato requerido por SheetDB
+      const sheetData = laborDays.map((day) => ({
+        día: day.día,
+        mes: day.mes,
+        año: day.año,
+        laboral: 'sí',
+        disponible: true,
+      }));
+
+      // Guardamos los datos en SheetDB
+      await SheetDBService.saveLaborDays(sheetData);
+
+      res.json(sheetData);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+}
+
+export default CalendarController;
