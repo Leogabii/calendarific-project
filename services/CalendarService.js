@@ -1,73 +1,72 @@
-import https from 'https';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { fetch } from 'node-fetch';
 
 class CalendarService {
-  // 1. Consumir la API de Calendarific
-  static async fetchWorkingDaysFromCalendarific() {
-    return new Promise((resolve, reject) => {
-      const API_URL = `https://calendarific.com/api/v2/holidays?api_key=${process.env.CALENDARIFIC_API_KEY}&country=AR&year=2024`;
+  // Paso 1: Obtener feriados desde la API de Calendarific
+  static async fetchHolidays(country, year) {
+    const API_KEY = process.env.CALENDARIFIC_API_KEY;
+    const url = `https://calendarific.com/api/v2/holidays?api_key=${API_KEY}&country=${country}&year=${year}`;
 
-      https.get(API_URL, (response) => {
-        let data = '';
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error al obtener feriados: ${response.statusText}`);
+    }
 
-        // Obtener datos en fragmentos
-        response.on('data', (chunk) => (data += chunk));
-
-        // Procesar la respuesta completa
-        response.on('end', () => {
-          const holidays = JSON.parse(data).response.holidays;
-
-          // Filtrar días laborales (no feriados)
-          const workingDays = holidays
-            .filter((holiday) => holiday.type[0] !== 'National holiday')
-            .map((day) => ({
-              dia: new Date(day.date.iso).getDate(),
-              mes: new Date(day.date.iso).getMonth() + 1,
-              año: new Date(day.date.iso).getFullYear(),
-              laboral: 'si',
-              disponible: true,
-            }));
-
-          resolve(workingDays);
-        });
-
-        // Manejo de errores en la solicitud
-        response.on('error', (err) => reject(err));
-      });
-    });
+    const data = await response.json();
+    return data.response.holidays;
   }
 
-  // 2. Guardar los datos en SheetDB
+  // Paso 2: Generar días laborales
+  static generateWorkingDays(holidays, year) {
+    const holidaysSet = new Set(
+      holidays
+        .filter((holiday) => holiday.type.includes('National holiday'))
+        .map((holiday) => holiday.date.iso)
+    );
+
+    const workingDays = [];
+    const startDate = new Date(year, 0, 1); // 1 de enero
+    const endDate = new Date(year, 11, 31); // 31 de diciembre
+
+    for (let current = startDate; current <= endDate; current.setDate(current.getDate() + 1)) {
+      const day = current.getDay(); // 0 = Domingo, 6 = Sábado
+      const dateString = current.toISOString().split('T')[0];
+
+      if (day !== 0 && day !== 6 && !holidaysSet.has(dateString)) {
+        workingDays.push({
+          dia: current.getDate(),
+          mes: current.getMonth() + 1,
+          año: current.getFullYear(),
+          laboral: 'si',
+          disponible: true,
+        });
+      }
+    }
+
+    return workingDays;
+  }
+
+  // Paso 3: Guardar días laborales en SheetDB
   static async saveWorkingDaysToSheetDB(workingDays) {
-    return new Promise((resolve, reject) => {
-      const auth = Buffer.from(`${process.env.SHEETDB_LOGIN}:${process.env.SHEETDB_PASSWORD}`).toString('base64');
-      const url = new URL(process.env.SHEETDB_URL);
+    const SHEETDB_URL = process.env.SHEETDB_URL;
+    const SHEETDB_LOGIN = process.env.SHEETDB_LOGIN;
+    const SHEETDB_PASSWORD = process.env.SHEETDB_PASSWORD;
 
-      const options = {
-        hostname: url.hostname,
-        path: url.pathname,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${auth}`,
-        },
-      };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-
-        res.on('data', (chunk) => (data += chunk));
-        res.on('end', () => resolve(JSON.parse(data)));
-      });
-
-      req.on('error', (err) => reject(err));
-
-      // Enviar los días laborales como JSON
-      req.write(JSON.stringify(workingDays));
-      req.end();
+    const response = await fetch(SHEETDB_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${Buffer.from(`${SHEETDB_LOGIN}:${SHEETDB_PASSWORD}`).toString(
+          'base64'
+        )}`,
+      },
+      body: JSON.stringify(workingDays),
     });
+
+    if (!response.ok) {
+      throw new Error(`Error al guardar en SheetDB: ${response.statusText}`);
+    }
+
+    return await response.json();
   }
 }
 
