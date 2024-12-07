@@ -1,47 +1,32 @@
-import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 
-// Configuración de dotenv para cargar variables de entorno
+// Cargar variables de entorno
 dotenv.config();
 
 class CalendarService {
-    constructor() {
-        this.apiKey = process.env.CALENDARIFIC_API_KEY;
-        this.baseUrl = 'https://calendarific.com/api/v2/holidays';
+  // Método para guardar días laborales en SheetDB
+  static async saveWorkingDaysToSheetDB(workingDays) {
+    try {
+      const response = await fetch(process.env.SHEETDB_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${Buffer.from(`${process.env.SHEETDB_USER}:${process.env.SHEETDB_PASSWORD}`).toString('base64')}`,
+        },
+        body: JSON.stringify(workingDays),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al guardar en SheetDB');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error al guardar en SheetDB:', error.message);
+      throw new Error('No se pudo guardar en SheetDB.');
     }
-
-    async getHolidays(country, year) {
-        const url = `${this.baseUrl}?api_key=${this.apiKey}&country=${country}&year=${year}`;
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error('Error al consumir la API de Calendarific');
-        }
-
-        const data = await response.json();
-        return data.response.holidays.map(holiday => ({
-            nombre: holiday.name,
-            descripción: holiday.description,
-            país: {
-                id: holiday.country.id,
-                nombre: holiday.country.name
-            },
-            fecha: {
-                iso: holiday.date.iso,
-                fechahora: {
-                    año: holiday.date.datetime.year,
-                    mes: holiday.date.datetime.month,
-                    día: holiday.date.datetime.day
-                }
-            },
-            tipo: holiday.type,
-            primary_type: holiday.primary_type,
-            canonical_url: holiday.canonical_url,
-            urlid: holiday.urlid,
-            locations: holiday.locations,
-            states: holiday.states
-        }));
-    }
+  }
 }
 
 export default CalendarService;
